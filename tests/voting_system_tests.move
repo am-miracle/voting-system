@@ -11,13 +11,8 @@ module voting_system::voting_system_tests {
     const VOTER2: address = @0xC;
     const VOTER3: address = @0xD;
 
-    const E_VOTING_ENDED: u64 = 1;
-    const E_VOTING_NOT_ENDED: u64 = 2;
-    const E_ALREADY_VOTED: u64 = 3;
-    const E_INVALID_OPTION: u64 = 4;
 
     const DAY_MS: u64 = 86400000; // 24 hours in milliseconds
-    const HOUR_MS: u64 = 3600000; // 1 hour in milliseconds
 
     // Helper function to create a basic voting scenario
     fun create_test_voting(scenario: &mut Scenario, clock: &Clock) {
@@ -145,7 +140,7 @@ module voting_system::voting_system_tests {
         test_scenario::end(scenario);
     }
 
-    #[test, expected_failure(abort_code = voting_system::voting_system::E_ALREADY_VOTED)]
+    #[test, expected_failure(abort_code = E_ALREADY_VOTED)]
     fun test_double_vote_fails() {
         let mut scenario = test_scenario::begin(CREATOR);
         let clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
@@ -283,7 +278,7 @@ module voting_system::voting_system_tests {
         test_scenario::end(scenario);
     }
 
-    #[test, expected_failure(abort_code = voting_system::voting_system::E_VOTING_NOT_ENDED)]
+    #[test, expected_failure(abort_code = E_VOTING_NOT_ENDED)]
     fun test_end_voting_early_fails() {
         let mut scenario = test_scenario::begin(CREATOR);
         let clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
@@ -397,17 +392,14 @@ module voting_system::voting_system_tests {
         // 1. Create voting
         create_test_voting(&mut scenario, &clock);
 
-        // 2. Multiple users vote
-        let voters_and_choices = vector[
-            (VOTER1, 0u8), // Yes
-            (VOTER2, 1u8), // No 
-            (VOTER3, 0u8), // Yes
-            (@0xE, 2u8),   // Abstain
-        ];
-        
+        // 2. Multiple users vote - using separate vectors for voters and choices
+        let voters = vector[VOTER1, VOTER2, VOTER3, @0xE];
+        let choices = vector[0u8, 1u8, 0u8, 2u8]; // Yes, No, Yes, Abstain
+
         let mut i = 0;
-        while (i < vector::length(&voters_and_choices)) {
-            let (voter, choice) = *vector::borrow(&voters_and_choices, i);
+        while (i < vector::length(&voters)) {
+            let voter = *vector::borrow(&voters, i);
+            let choice = *vector::borrow(&choices, i);
 
             test_scenario::next_tx(&mut scenario, voter);
             {
@@ -451,7 +443,7 @@ module voting_system::voting_system_tests {
             voting_system::end_voting(&mut voting, &cap, &clock, ctx);
 
             // 5. Verify final results
-            let (options, vote_counts) = voting_system::get_results(&voting);
+            let (_options, vote_counts) = voting_system::get_results(&voting);
             assert!(*vector::borrow(&vote_counts, 0) == 2, 42); // Yes wins with 2 votes
             assert!(*vector::borrow(&vote_counts, 1) == 1, 43); // No: 1 vote
             assert!(*vector::borrow(&vote_counts, 2) == 1, 44); // Abstain: 1 vote
